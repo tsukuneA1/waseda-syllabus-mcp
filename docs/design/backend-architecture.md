@@ -256,5 +256,5 @@ uv add --dev pytest-mock
 
 - [uv workspace 公式ドキュメント](https://docs.astral.sh/uv/concepts/workspaces/)
 - [FastAPI 公式ドキュメント](https://fastapi.tiangolo.com/)
-- [MCP Python SDK](https://github.com/anthropics/mcp)
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
 - [早稲田大学シラバス検索](https://www.wsl.waseda.jp/syllabus/JAA101.php)
