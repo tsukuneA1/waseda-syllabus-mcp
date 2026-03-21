@@ -11,13 +11,17 @@ squash merge後のローカル環境を整理する。worktree削除→ブラン
 
 ## Step 1: 対象ブランチの特定
 
-ユーザーがPR番号・issue番号・ブランチ名のいずれかを伝えてくれる。
+ユーザーは `WMCP-<number>` の形式で指定する（例: `WMCP-1`）。
 
-**ブランチ名が不明な場合**は現在のworktreeの一覧を表示して確認する:
+bareリポジトリのパスを取得し、その番号で始まるブランチを検索する:
 
 ```bash
-git --git-dir=<bare-path> worktree list
+git --git-dir=<bare-path> branch | grep "WMCP-<number>-"
 ```
+
+例: `WMCP-1` と指定されたら `WMCP-1-docs-backend-architecture` などがヒットする。
+
+複数マッチした場合はユーザーに確認する。1件だけマッチした場合はそのまま進む。
 
 bareリポジトリのパスは `git rev-parse --git-common-dir` で取得する。
 
