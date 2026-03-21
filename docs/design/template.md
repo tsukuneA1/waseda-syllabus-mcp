@@ -1,69 +1,69 @@
-# Design Doc: [Component Name]
+# 設計ドキュメント: [コンポーネント名]
 
-## Overview
+## 概要
 
-Brief description of what this component does and its purpose in the system.
+このコンポーネントが何をするか、システム内での目的を簡潔に説明する。
 
-## Goals
+## 目標
 
-- Primary goal
-- Secondary goals
-- Non-goals (what this component explicitly does NOT do)
+- 主要な目標
+- 副次的な目標
+- 非目標 (このコンポーネントが明示的にやらないこと)
 
-## Background
+## 背景
 
-Context and background information needed to understand this design.
+この設計を理解するために必要な文脈や背景情報。
 
-## Design
+## 設計
 
-### Architecture
+### アーキテクチャ
 
-High-level architecture diagram or description.
+高レベルのアーキテクチャ図または説明。
 
-### Data Model
+### データモデル
 
-Data structures, database schemas, or type definitions.
+データ構造、データベーススキーマ、型定義など。
 
-### API/Interface
+### API/インターフェース
 
-Public APIs, interfaces, or contracts this component exposes.
+このコンポーネントが公開するAPI、インターフェース、契約。
 
-### Implementation Details
+### 実装の詳細
 
-Key implementation details, algorithms, or approaches.
+主要な実装の詳細、アルゴリズム、アプローチ。
 
-### Dependencies
+### 依存関係
 
-- External dependencies
-- Internal dependencies
-- System requirements
+- 外部依存関係
+- 内部依存関係
+- システム要件
 
-## Alternatives Considered
+## 検討した代替案
 
-What other approaches were considered and why they were not chosen.
+他にどのようなアプローチを検討したか、なぜ採用しなかったか。
 
-## Open Questions
+## 未解決の質問
 
-Questions that need to be resolved before or during implementation.
+実装前または実装中に解決する必要がある質問。
 
-## Security/Privacy Considerations
+## セキュリティ/プライバシーの考慮事項
 
-Any security or privacy implications.
+セキュリティやプライバシーに関する影響。
 
-## Testing Strategy
+## テスト戦略
 
-How this component will be tested.
+このコンポーネントをどのようにテストするか。
 
-## Rollout/Migration Plan
+## ロールアウト/移行計画
 
-How this will be deployed or migrated (if applicable).
+どのようにデプロイまたは移行するか(該当する場合)。
 
-## Metrics/Monitoring
+## メトリクス/モニタリング
 
-How success will be measured and monitored.
+成功をどのように測定・監視するか。
 
-## References
+## 参考資料
 
-- Links to related docs
-- External resources
-- Prior art
+- 関連ドキュメントへのリンク
+- 外部リソース
+- 先行事例
