@@ -25,18 +25,23 @@ Python のパッケージ管理には `uv` を採用。高速な依存解決と 
 
 ## 設計
 
-### アーキテクチャ
+### ディレクトリ構造
+
+リポジトリルートの下に `apps/backend/` を置き、その中で uv workspace を管理する。
 
 ```
-waseda-syllabus-mcp/  (uv workspace root)
-├── pyproject.toml            # workspace 設定
-├── packages/
-│   ├── api/                  # FastAPI アプリ (HTTP API + MCP エンドポイント)
-│   ├── mcp-server/           # MCP プロトコル実装
-│   ├── crawler/              # シラバスクローラー
-│   └── shared/               # 共通型・ユーティリティ
+waseda-syllabus-mcp/          # リポジトリルート
+├── apps/
+│   └── backend/              # uv workspace root
+│       ├── pyproject.toml    # workspace 設定
+│       └── packages/
+│           ├── api/          # FastAPI アプリ
+│           ├── mcp-server/   # MCP プロトコル実装
+│           └── libs/         # 共通ライブラリ (型定義・クローラー等)
 └── docs/
 ```
+
+### アーキテクチャ
 
 データフロー:
 
@@ -45,7 +50,7 @@ LLM (Claude等)
     ↓ MCP protocol
 mcp-server  ←→  api (FastAPI)
                     ↓
-                shared (型定義)
+                libs (型定義・クローラー)
                     ↓
                 crawler → 早稲田シラバスサイト
                     ↓
@@ -54,38 +59,27 @@ mcp-server  ←→  api (FastAPI)
 
 ### パッケージ構成と責務
 
-#### `packages/shared`
+#### `packages/libs`
 
-共通の型定義・ユーティリティ。他の全パッケージから参照される。
+共通の型定義・ユーティリティ・クローラーをまとめたライブラリパッケージ。
+独立したパッケージを切るほどでもない処理はここに集約する。
 
 ```
-shared/
+libs/
 ├── pyproject.toml
 └── src/
-    └── waseda_shared/
+    └── waseda_libs/
         ├── models.py       # Pydantic モデル (Course, Instructor, Schedule 等)
         ├── exceptions.py   # 共通例外クラス
-        └── utils.py        # 共通ユーティリティ
+        ├── crawler/
+        │   ├── client.py   # HTTP クライアント (httpx)
+        │   ├── parser.py   # HTML パーサー (BeautifulSoup)
+        │   └── scraper.py  # スクレイピングロジック
+        └── db/
+            └── storage.py  # DB への保存
 ```
 
-**依存関係**: 外部ライブラリのみ（pydantic, etc.）
-
-#### `packages/crawler`
-
-早稲田大学シラバスサイトのスクレイピングとデータ取得。
-
-```
-crawler/
-├── pyproject.toml
-└── src/
-    └── waseda_crawler/
-        ├── client.py       # HTTP クライアント (httpx)
-        ├── parser.py       # HTML パーサー (BeautifulSoup)
-        ├── scraper.py      # スクレイピングロジック
-        └── storage.py      # DB への保存
-```
-
-**依存関係**: `shared`, httpx, beautifulsoup4, sqlalchemy
+**依存関係**: 外部ライブラリのみ（pydantic, httpx, beautifulsoup4, sqlalchemy 等）
 
 #### `packages/api`
 
@@ -104,7 +98,7 @@ api/
         └── schemas.py      # レスポンス用スキーマ
 ```
 
-**依存関係**: `shared`, fastapi, uvicorn, sqlalchemy, asyncpg
+**依存関係**: `libs`, fastapi, uvicorn, sqlalchemy, asyncpg
 
 #### `packages/mcp-server`
 
@@ -122,28 +116,26 @@ mcp-server/
         └── resources/      # MCP リソース定義
 ```
 
-**依存関係**: `shared`, `api`, mcp (Anthropic MCP SDK)
+**依存関係**: `libs`, `api`, mcp (Anthropic MCP SDK)
 
 ### 依存関係グラフ
 
 ```
-mcp-server → api → shared
-crawler    → shared
+mcp-server → api → libs
 ```
 
-循環依存なし。`shared` が唯一の共通基盤。
+循環依存なし。`libs` が唯一の共通基盤。
 
 ### pyproject.toml 構成例
 
-**workspace ルート** (`pyproject.toml`):
+**workspace ルート** (`apps/backend/pyproject.toml`):
 
 ```toml
 [tool.uv.workspace]
 members = [
     "packages/api",
     "packages/mcp-server",
-    "packages/crawler",
-    "packages/shared",
+    "packages/libs",
 ]
 
 [tool.uv]
@@ -163,7 +155,7 @@ name = "waseda-api"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "waseda-shared",
+    "waseda-libs",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
     "sqlalchemy[asyncio]>=2.0",
@@ -171,7 +163,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-waseda-shared = { workspace = true }
+waseda-libs = { workspace = true }
 ```
 
 ## 開発フロー
@@ -179,6 +171,8 @@ waseda-shared = { workspace = true }
 ### セットアップ
 
 ```bash
+cd apps/backend
+
 # 依存関係を全パッケージ分まとめてインストール
 uv sync
 
@@ -196,7 +190,7 @@ uv run --package waseda-api uvicorn waseda_api.main:app --reload
 uv run --package waseda-mcp python -m waseda_mcp.server
 
 # クローラー実行
-uv run --package waseda-crawler python -m waseda_crawler.scraper
+uv run --package waseda-libs python -m waseda_libs.crawler.scraper
 ```
 
 ### テスト
@@ -236,7 +230,7 @@ uv add --dev pytest-mock
 |---|---|
 | Poetry workspace | uv より低速、workspace サポートが実験的 |
 | pip + requirements.txt | パッケージ間依存の管理が複雑になる |
-| 単一パッケージ構成 | 責務が混在し、テスト・デプロイの独立性が失われる |
+| crawler を独立パッケージにする | 独立デプロイ・独立テストの必要性が低く over-engineering |
 | Django | シラバス検索 API には over-engineering、FastAPI の非同期処理が適切 |
 
 ## 未解決の質問
