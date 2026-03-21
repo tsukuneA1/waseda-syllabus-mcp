@@ -22,12 +22,14 @@ gh issue view <number> --json number,title,labels,body
 |------|--------|
 | ラベル `bug` / タイトルに "fix" "バグ" "修正" | `fix` |
 | ラベル `documentation` / タイトルに "doc" "ドキュメント" | `docs` |
+| タイトルに "refactor" "リファクタ" | `refactor` |
 | それ以外 | `feature` |
 
 ## Step 2: ブランチ名の生成
 
+命名規則:
 ```
-<prefix>-<issue-number>-<title-slug>
+WMCP-<issue-number>-<prefix>-<title-slug>
 ```
 
 title-slugのルール:
@@ -38,8 +40,8 @@ title-slugのルール:
 - 最大40文字
 
 例:
-- #1 "Design Doc: Backend Architecture (uv workspace + FastAPI)" → `feature-1-backend-architecture-uv-workspace-fastapi`
-- #7 "Setup: Development Environment (Docker + PostgreSQL)" → `feature-7-development-environment-docker-postgresql`
+- #1 "Design Doc: Backend Architecture (uv workspace + FastAPI)" → `WMCP-1-docs-backend-architecture`
+- #7 "Setup: Development Environment (Docker + PostgreSQL)" → `WMCP-7-feature-development-environment-docker`
 
 ## Step 3: Bareリポジトリとプロジェクトルートの特定
 
@@ -50,13 +52,26 @@ git rev-parse --git-common-dir
 このコマンドが返すパス（例: `/home/tksch/waseda-syllabus-mcp/.bare`）がbareリポジトリ。
 その親ディレクトリがプロジェクトルート。
 
-**注意**: bareリポジトリ外で実行するとエラーになる場合がある。
-その場合は `.bare` ディレクトリを探してbareパスとして使う。
+**注意**: 取得できない場合は親ディレクトリを遡って `.bare` ディレクトリを探す。
 
 ## Step 4: Worktreeの作成
 
+worktreeはプロジェクトルート直下の `worktrees/` ディレクトリに作成する:
+
 ```bash
-git --git-dir=<bare-path> worktree add <project-root>/<branch-name> -b <branch-name>
+mkdir -p <project-root>/worktrees
+git --git-dir=<bare-path> worktree add <project-root>/worktrees/<branch-name> -b <branch-name>
+```
+
+ディレクトリ構成:
+```
+waseda-syllabus-mcp/
+├── .bare/
+├── main/           ← mainブランチ専用
+└── worktrees/      ← issue作業用worktreeはここに集約
+    ├── WMCP-1-docs-backend-architecture/
+    ├── WMCP-2-docs-frontend-architecture/
+    └── ...
 ```
 
 ## Step 5: 実装
@@ -120,7 +135,8 @@ PRのタイトルはissueのタイトルをベースにする。
 ## 注意事項
 
 - このプロジェクトは `git clone --bare` ベースのworktree構成。必ず `git --git-dir=<bare-path> worktree add` を使う
-- bareリポジトリのパスは動的に取得する（ハードコードしない）。取得できない場合は `.bare` ディレクトリを探す
-- `gh pr create` は `--head` と `--base` を明示する（省略するとエラーになる場合がある）
+- worktreeは必ず `worktrees/` ディレクトリ配下に作成する（`main/` と分離するため）
+- bareリポジトリのパスは動的に取得する（ハードコードしない）
+- `gh pr create` は `--head` と `--base` を明示する
 - コミットメッセージに `Closes #N` を含めてissueの自動クローズを有効にする
 - **ユーザーへの確認は最小限に**。実装方針が複数あって判断できない場合のみ質問する
