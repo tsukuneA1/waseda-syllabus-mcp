@@ -9,7 +9,7 @@ from typing import Any, AsyncIterator, List, Optional
 import sqlalchemy
 import sqlalchemy.ext.asyncio
 
-from  import models
+from db.gen import models
 
 
 COUNT_SYLLABUSES = """-- name: count_syllabuses \\:one
@@ -45,6 +45,33 @@ class ListSyllabusesParams(pydantic.BaseModel):
 
 
 class ListSyllabusesRow(pydantic.BaseModel):
+    pkey: str
+    title: str
+    title_en: Optional[str]
+    year: int
+    semester: str
+    credits: Optional[int]
+    department: Optional[str]
+    instructors: List[str]
+
+
+SEARCH_COURSES = """-- name: search_courses \\:many
+SELECT pkey, title, title_en, year, semester, credits, department, instructors
+FROM syllabuses
+WHERE
+    (:p1\\:\\:TEXT IS NULL OR (
+        title ILIKE '%' || :p1 || '%'
+        OR description ILIKE '%' || :p1 || '%'
+        OR :p1 = ANY(instructors)
+    ))
+    AND (:p2\\:\\:SMALLINT IS NULL OR year = :p2)
+    AND (:p3\\:\\:VARCHAR IS NULL OR semester = :p3)
+ORDER BY year DESC, title
+LIMIT :p4
+"""
+
+
+class SearchCoursesRow(pydantic.BaseModel):
     pkey: str
     title: str
     title_en: Optional[str]
@@ -193,6 +220,25 @@ class AsyncQuerier:
         })
         async for row in result:
             yield ListSyllabusesRow(
+                pkey=row[0],
+                title=row[1],
+                title_en=row[2],
+                year=row[3],
+                semester=row[4],
+                credits=row[5],
+                department=row[6],
+                instructors=row[7],
+            )
+
+    async def search_courses(self, *, dollar_1: str, dollar_2: int, dollar_3: str, limit: int) -> AsyncIterator[SearchCoursesRow]:
+        result = await self._conn.stream(sqlalchemy.text(SEARCH_COURSES), {
+            "p1": dollar_1,
+            "p2": dollar_2,
+            "p3": dollar_3,
+            "p4": limit,
+        })
+        async for row in result:
+            yield SearchCoursesRow(
                 pkey=row[0],
                 title=row[1],
                 title_en=row[2],
