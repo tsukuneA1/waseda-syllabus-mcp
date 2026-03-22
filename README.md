@@ -4,6 +4,26 @@ Waseda University Syllabus MCP Server
 
 ## Development Setup
 
+### Docker環境 (PostgreSQL)
+
+```bash
+# .envファイルを作成
+cp .env.example .env
+# POSTGRES_PASSWORDを設定してください
+
+# PostgreSQLを起動
+docker compose up -d
+
+# 起動確認（healthyになるまで待つ）
+docker compose ps
+
+# 接続確認
+docker compose exec db psql -U postgres -d waseda_syllabus -c '\dt'
+
+# 停止
+docker compose down
+```
+
 ### Backend (uv workspace)
 
 ```bash
