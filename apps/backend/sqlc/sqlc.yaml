@@ -10,7 +10,7 @@ sql:
     engine: "postgresql"
     codegen:
       - plugin: py
-        out: "../packages/libs/src/db"
+        out: "../packages/libs/src/db/gen"
         options:
           emit_sync_querier: false
           emit_async_querier: true
