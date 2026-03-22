@@ -1,0 +1,14 @@
+[project]
+name = "waseda-api"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "waseda-libs",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29",
+]
+
+[tool.uv.sources]
+waseda-libs = { workspace = true }
