@@ -2,13 +2,13 @@
 
 ## 概要
 
-早稲田大学シラバス情報を LLM (Claude 等) から利用可能にする MCP (Model Context Protocol) サーバーの実装設計。
+早稲田大学シラバス情報を MCP (Model Context Protocol) クライアントから利用可能にするサーバーの実装設計。
 `packages/mcp-server` パッケージとして実装し、FastAPI (`packages/api`) 経由でシラバスデータにアクセスする。
 
 ## 目標
 
 - **主要な目標**
-  - Claude Desktop から早稲田大学シラバスを検索・参照できる MCP ツールを提供する
+  - MCP クライアントから早稲田大学シラバスを検索できる MCP ツールを提供する（MVP: `search_syllabus` のみ）
   - Python MCP SDK を使い、MCP プロトコルに準拠したサーバーを実装する
   - API パッケージ経由でデータアクセスを行い、責務を分離する
 
@@ -20,7 +20,7 @@
 ## 背景
 
 早稲田大学のシラバス情報は Web 上に分散しており、LLM から直接参照するには不便。
-MCP サーバーを構築することで Claude がシラバスを検索・参照し、履修計画のサポートなどを行えるようにする。
+MCP サーバーを構築することで MCP 対応クライアントがシラバスを検索・参照し、履修計画のサポートなどを行えるようにする。
 
 アーキテクチャの詳細は [backend-architecture.md](./backend-architecture.md) を参照。
 MCP サーバーは `mcp-server → api → libs` の依存チェーンの最上位に位置する。
@@ -30,7 +30,7 @@ MCP サーバーは `mcp-server → api → libs` の依存チェーンの最上
 ### アーキテクチャ
 
 ```
-Claude Desktop
+MCP クライアント (Claude Desktop, Cursor 等)
     ↓ MCP protocol (stdio)
 mcp-server (packages/mcp-server)
     ↓ HTTP (httpx)
@@ -39,7 +39,7 @@ api (packages/api / FastAPI)
 libs → PostgreSQL
 ```
 
-MCP サーバーは stdio トランスポートで起動し、Claude Desktop からサブプロセスとして呼び出される。
+MCP サーバーは stdio トランスポートで起動し、MCP クライアントからサブプロセスとして呼び出される。
 データアクセスは `api` パッケージの HTTP エンドポイント経由で行う（直接 DB アクセスはしない）。
 
 ### ディレクトリ構造
@@ -54,62 +54,15 @@ packages/mcp-server/
         ├── client.py        # API クライアント (httpx)
         ├── tools/
         │   ├── __init__.py
-        │   ├── search.py    # search_syllabus ツール
-        │   ├── get.py       # get_syllabus ツール
-        │   └── recommend.py # recommend_courses ツール
+        │   └── search.py    # search_syllabus ツール (MVP)
         └── types.py         # ツール入出力の型定義
 ```
 
 ### ツール定義
 
-#### `search_syllabus`
+#### `search_syllabus`（MVP）
 
 シラバスをキーワード・条件で検索する。
-
-```python
-@mcp.tool()
-async def search_syllabus(
-    query: str,
-    year: int | None = None,
-    semester: Literal["spring", "fall", "full_year"] | None = None,
-    language: Literal["ja", "en"] | None = None,
-    limit: int = 10,
-) -> list[CourseSummary]:
-    ...
-```
-
-#### `get_syllabus`
-
-科目コードを指定してシラバス詳細を取得する。
-
-```python
-@mcp.tool()
-async def get_syllabus(
-    course_code: str,
-    year: int | None = None,
-) -> CourseDetail:
-    ...
-```
-
-#### `recommend_courses`
-
-指定した条件・興味に基づいて履修候補を推薦する。
-
-```python
-@mcp.tool()
-async def recommend_courses(
-    interests: list[str],
-    year: int | None = None,
-    semester: Literal["spring", "fall", "full_year"] | None = None,
-    limit: int = 5,
-) -> list[CourseSummary]:
-    ...
-```
-
-### 入力スキーマ設計
-
-MCP SDK の `@mcp.tool()` デコレータが Python の型アノテーションから JSON Schema を自動生成する。
-パラメータの説明は docstring で記述する。
 
 ```python
 @mcp.tool()
@@ -132,9 +85,12 @@ async def search_syllabus(
     """
 ```
 
+MCP SDK の `@mcp.tool()` デコレータが Python の型アノテーションから JSON Schema を自動生成する。
+パラメータの説明は docstring で記述する。
+
 ### 出力フォーマット設計
 
-#### `CourseSummary`（一覧表示用）
+#### `CourseSummary`
 
 ```python
 class CourseSummary(BaseModel):
@@ -149,30 +105,8 @@ class CourseSummary(BaseModel):
     year: int              # 対象年度
 ```
 
-#### `CourseDetail`（詳細表示用）
-
-```python
-class CourseDetail(CourseSummary):
-    description: str            # 授業概要
-    objectives: str             # 学習目標
-    schedule: list[WeeklyTopic] # 週ごとの授業計画
-    grading: str                # 成績評価方法
-    textbooks: list[str]        # 教科書
-    references: list[str]       # 参考文献
-    notes: str | None           # 備考・注意事項
-    url: str                    # 早稲田シラバスページ URL
-```
-
-#### `WeeklyTopic`
-
-```python
-class WeeklyTopic(BaseModel):
-    week: int      # 第N回
-    topic: str     # 授業内容
-```
-
 MCP ツールの戻り値は Pydantic モデルを `model_dump()` して JSON 文字列として返す。
-LLM が読みやすいよう `ensure_ascii=False` で日本語をそのまま出力する。
+`ensure_ascii=False` で日本語をそのまま出力する。
 
 ### DB アクセス方法
 
@@ -199,22 +133,16 @@ class SyllabusApiClient:
         resp = await self._client.get("/courses/search", params=params)
         resp.raise_for_status()
         return resp.json()
-
-    async def get_course(self, course_code: str, year: int | None) -> dict:
-        resp = await self._client.get(f"/courses/{course_code}", params={"year": year})
-        resp.raise_for_status()
-        return resp.json()
 ```
 
 ### エラーハンドリング
 
-MCP ツール内で発生した例外は MCP SDK が `isError: true` のレスポンスとして LLM に返す。
+MCP ツール内で発生した例外は MCP SDK が `isError: true` のレスポンスとしてクライアントに返す。
 ユーザーが意味のあるメッセージを受け取れるよう、例外を適切にラップする。
 
 | エラー種別 | 対処 |
 |---|---|
 | API 接続失敗 (`httpx.ConnectError`) | 「APIサーバーに接続できません。サーバーが起動しているか確認してください。」を返す |
-| 科目が見つからない (`404`) | 「指定された科目コードが見つかりません: {code}」を返す |
 | API エラー (`5xx`) | 「サーバーエラーが発生しました。しばらく待ってから再試行してください。」を返す |
 | タイムアウト (`httpx.TimeoutException`) | 「リクエストがタイムアウトしました。再試行してください。」を返す |
 | バリデーションエラー | パラメータの説明を含むメッセージを返す |
@@ -226,19 +154,17 @@ try:
 except httpx.ConnectError:
     raise McpError("API サーバーに接続できません。サーバーが起動しているか確認してください。")
 except httpx.HTTPStatusError as e:
-    if e.response.status_code == 404:
-        raise McpError(f"検索結果が見つかりませんでした: {query}")
     raise McpError(f"API エラー: {e.response.status_code}")
 except httpx.TimeoutException:
     raise McpError("リクエストがタイムアウトしました。再試行してください。")
 ```
 
-### Claude Desktop 設定方法
+### MCP クライアント設定方法
 
-Claude Desktop の設定ファイル (`claude_desktop_config.json`) に以下を追加する。
+stdio トランスポートで起動するため、MCP クライアント側でサブプロセスとして登録する。
+以下は Claude Desktop を例にした設定だが、他の MCP 対応クライアント（Cursor 等）も同様の方式で設定できる。
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+**設定ファイル例** (`claude_desktop_config.json` または各クライアントの設定):
 
 ```json
 {
@@ -263,9 +189,6 @@ Claude Desktop の設定ファイル (`claude_desktop_config.json`) に以下を
 }
 ```
 
-**注意**: `/path/to/waseda-syllabus-mcp` は実際のリポジトリパスに置き換える。
-Claude Desktop を再起動すると設定が反映される。
-
 API サーバーは別途起動しておく必要がある:
 
 ```bash
@@ -278,13 +201,12 @@ uv run --package waseda-api uvicorn waseda_api.main:app --reload
 | 案 | 採用しなかった理由 |
 |---|---|
 | DB への直接アクセス | 責務が混在し、スキーマ変更時の影響範囲が広がる |
-| HTTP トランスポート (SSE) | Claude Desktop は stdio 接続を前提にしており、初期実装には不要 |
-| `recommend_courses` を LLM プロンプトで実装 | サーバー側でロジックを持つことで再現性が高く、テストしやすい |
-| ツールを1つに統合 | 引数が複雑になり LLM が使いづらくなる |
+| HTTP トランスポート (SSE) | 初期実装には不要、将来の要件に応じて追加検討 |
+| MVP で複数ツールを実装 | `get_syllabus` や `recommend_courses` は LLM 側で代替可能な部分が多く、まず `search_syllabus` で価値検証する |
 
 ## 未解決の質問
 
-- [ ] `recommend_courses` の推薦ロジック: ルールベース vs ベクトル検索
+- [ ] MVP 以降に追加するツールの優先順位（`get_syllabus` vs `recommend_courses` vs 他）
 - [ ] MCP サーバーの stdio 以外のトランスポート対応タイミング
 - [ ] API サーバーの認証・API キー管理
 
@@ -292,16 +214,15 @@ uv run --package waseda-api uvicorn waseda_api.main:app --reload
 
 - シラバス情報は公開情報のため、個人情報は含まない
 - API の接続先 URL は環境変数で管理し、ハードコードしない
-- Claude Desktop はローカル実行のため、ネットワーク公開は不要
+- ローカル実行（stdio）のため、ネットワーク公開は不要
 
 ## テスト戦略
 
-- **Unit テスト**: 各ツール関数を `httpx.MockTransport` でAPIモックしてテスト
+- **Unit テスト**: `search_syllabus` ツールを `httpx.MockTransport` で API モックしてテスト
 - **Integration テスト**: 実 API サーバーに接続してエンドツーエンドでツール呼び出しをテスト
-- **エラーケーステスト**: 接続エラー・タイムアウト・404 等の異常系を網羅
+- **エラーケーステスト**: 接続エラー・タイムアウト等の異常系を網羅
 
 ```bash
-# テスト実行
 uv run pytest packages/mcp-server/tests/ -v
 ```
 
@@ -309,5 +230,4 @@ uv run pytest packages/mcp-server/tests/ -v
 
 - [Python MCP SDK](https://github.com/modelcontextprotocol/python-sdk)
 - [MCP 仕様書](https://spec.modelcontextprotocol.io/)
-- [Claude Desktop MCP 設定ガイド](https://docs.anthropic.com/en/docs/build-with-claude/mcp)
 - [backend-architecture.md](./backend-architecture.md) - バックエンド全体のアーキテクチャ
