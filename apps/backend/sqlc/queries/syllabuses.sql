@@ -23,6 +23,20 @@ WHERE
 ORDER BY year DESC
 LIMIT $2 OFFSET $3;
 
+-- name: SearchCourses :many
+SELECT pkey, title, title_en, year, semester, credits, department, instructors
+FROM syllabuses
+WHERE
+    ($1::TEXT IS NULL OR (
+        title ILIKE '%' || $1 || '%'
+        OR description ILIKE '%' || $1 || '%'
+        OR $1 = ANY(instructors)
+    ))
+    AND ($2::SMALLINT IS NULL OR year = $2)
+    AND ($3::VARCHAR IS NULL OR semester = $3)
+ORDER BY year DESC, title
+LIMIT $4;
+
 -- name: SearchSyllabusesByVector :many
 SELECT pkey, title, title_en, year, semester, credits, department, instructors,
        ts_rank(search_vector, plainto_tsquery('english', $1)) AS rank

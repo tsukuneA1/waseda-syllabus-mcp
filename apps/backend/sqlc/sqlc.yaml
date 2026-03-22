@@ -12,6 +12,7 @@ sql:
       - plugin: py
         out: "../packages/libs/src/db/gen"
         options:
+          package: "db.gen"
           emit_sync_querier: false
           emit_async_querier: true
           emit_pydantic_models: true
