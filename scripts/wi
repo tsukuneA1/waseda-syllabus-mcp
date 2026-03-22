@@ -2,5 +2,5 @@
 ISSUE=${1:?Usage: wi <issue-number>}
 PROJECT_ROOT="/home/tksch/waseda-syllabus-mcp/main"
 
-tmux new-window -n "issue-$ISSUE" -c "$PROJECT_ROOT"
-tmux send-keys -t "issue-$ISSUE" "claude \"/worktree-issue $ISSUE\"" Enter
+tmux split-window -h -c "$PROJECT_ROOT"
+tmux send-keys "claude \"/worktree-issue $ISSUE\"" Enter
