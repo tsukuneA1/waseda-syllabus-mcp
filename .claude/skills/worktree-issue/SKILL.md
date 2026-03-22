@@ -108,21 +108,24 @@ git -C <worktree-path> push -u origin <branch-name>
 
 ## Step 8: PR作成
 
+`.github/pull_request_template.md` を読み込み、そのテンプレートに従ってPRのbodyを作成する。
+
+テンプレートのルール（テンプレート内のコメントにも記載されている）:
+- Required セクションは必ず記入する
+- Optional セクションは内容がない場合はセクション全体（見出しを含む）を削除する
+- セクションの順序は変更しない
+- HTMLコメント (`<!-- ... -->`) は最終的なbodyからすべて除去する
+
 ```bash
+# テンプレートを読み込む
+cat <project-root>/main/.github/pull_request_template.md
+
 gh pr create \
   --title "<PRタイトル>" \
   --head <branch-name> \
   --base main \
   --body "$(cat <<'EOF'
-## Summary
-
-<変更内容の要約を箇条書きで>
-
-## Related Issue
-
-Closes #<issue-number>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+<テンプレートに従って記入したbody。HTMLコメントは除去済み>
 EOF
 )"
 ```
