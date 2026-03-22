@@ -7,6 +7,8 @@ Waseda University Syllabus MCP Server
 ### Docker環境 (PostgreSQL)
 
 ```bash
+cd apps/backend
+
 # .envファイルを作成
 cp .env.example .env
 # POSTGRES_PASSWORDを設定してください
