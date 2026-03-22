@@ -13,6 +13,7 @@ import argparse
 import asyncio
 import logging
 import os
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,7 +22,6 @@ from typing import Any
 import httpx
 import psycopg
 from dotenv import load_dotenv
-from playwright.async_api import async_playwright
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -75,64 +75,60 @@ ON CONFLICT (pkey) DO UPDATE SET
 
 
 # ---------------------------------------------------------------------------
-# pKey collection via Playwright
+# pKey collection via httpx POST (JAA103.php embeds pKeys in onclick attrs)
 # ---------------------------------------------------------------------------
 
+PKEY_RE = re.compile(r"post_submit\('JAA104DtlSubCon',\s*'([A-Za-z0-9]{28})'")
+PAGE_ITEMS = 100  # request 100 items per page
 
-async def fetch_all_pkeys(nendo: str) -> list[str]:
-    """Collect all pKeys from JAA103.php using Playwright."""
-    url = f"{BASE_URL}/JAA103.php?pLng=jp&nendo={nendo}"
+
+async def fetch_all_pkeys(
+    nendo: str, max_pkeys: int | None = None
+) -> list[str]:
+    """Collect pKeys from JAA103.php using httpx POST.
+
+    JAA103.php embeds pKeys in onclick attributes of the search result table.
+    Pagination is driven by the ``p_page`` POST parameter.
+    If ``max_pkeys`` is given, stops as soon as that many are collected.
+    """
+    url = f"{BASE_URL}/JAA103.php"
     pkeys: list[str] = []
 
-    async with async_playwright() as pw:
-        browser = await pw.chromium.launch()
-        context = await browser.new_context(user_agent=USER_AGENT)
-        page = await context.new_page()
+    headers = {"User-Agent": USER_AGENT}
+    async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
+        page_num = 1
+        while True:
+            data = {
+                "pLng": "jp",
+                "nendo": nendo,
+                "ControllerParameters": "JAA103SubCon",
+                "p_number": str(PAGE_ITEMS),
+                "p_page": str(page_num),
+            }
+            resp = await client.post(url, data=data, timeout=30.0)
+            resp.raise_for_status()
+            found = PKEY_RE.findall(resp.text)
 
-        try:
-            log.info(f"Opening {url}")
-            await page.goto(url)
-            await page.wait_for_load_state("networkidle")
+            if not found:
+                log.info(f"  Page {page_num}: no pKeys found — collection complete.")
+                break
 
-            page_num = 1
-            while True:
-                links = await page.query_selector_all("a[href*='JAA104.php']")
-                for link in links:
-                    href = await link.get_attribute("href")
-                    if href and "pKey=" in href:
-                        pkey = href.split("pKey=")[1].split("&")[0]
-                        if len(pkey) == 28:
-                            pkeys.append(pkey)
+            pkeys.extend(found)
+            log.info(
+                f"  Page {page_num}: {len(found)} pKeys "
+                f"(running total: {len(pkeys)})"
+            )
 
-                log.info(
-                    f"  Page {page_num}: {len(links)} links collected "
-                    f"(running total: {len(pkeys)})"
-                )
+            if max_pkeys is not None and len(pkeys) >= max_pkeys:
+                log.info(f"  Reached max_pkeys={max_pkeys}, stopping collection.")
+                break
 
-                # Try several selectors for the "next page" control
-                next_btn = None
-                for selector in [
-                    "input[value*='次の']",
-                    "input[value*='Next']",
-                    "a:has-text('次のページ')",
-                    "a:has-text('次へ')",
-                    ".next a",
-                    "td.next a",
-                ]:
-                    next_btn = await page.query_selector(selector)
-                    if next_btn:
-                        break
+            # Stop if we got fewer items than requested (last page)
+            if len(found) < PAGE_ITEMS:
+                break
 
-                if not next_btn:
-                    log.info("No next-page button found — collection complete.")
-                    break
-
-                await next_btn.click()
-                await page.wait_for_load_state("networkidle")
-                page_num += 1
-
-        finally:
-            await browser.close()
+            page_num += 1
+            await asyncio.sleep(0.5)  # be polite during pKey collection too
 
     # Deduplicate, preserve order
     seen: set[str] = set()
@@ -252,12 +248,17 @@ async def run_crawler(
     conninfo: str,
     checkpoint_path: Path,
     limit: int | None = None,
+    pkeys: list[str] | None = None,
 ) -> None:
     state = CrawlState(checkpoint_path)
 
-    log.info(f"Fetching pKey list for nendo={nendo} ...")
-    all_pkeys = await fetch_all_pkeys(nendo)
-    log.info(f"Total pKeys collected: {len(all_pkeys)}")
+    if pkeys:
+        all_pkeys = pkeys
+        log.info(f"Using {len(all_pkeys)} pKeys provided via --pkeys")
+    else:
+        log.info(f"Fetching pKey list for nendo={nendo} ...")
+        all_pkeys = await fetch_all_pkeys(nendo, max_pkeys=limit)
+        log.info(f"Total pKeys collected: {len(all_pkeys)}")
 
     pending = [pk for pk in all_pkeys if not state.is_done(pk)]
     if limit is not None:
@@ -345,6 +346,12 @@ def main() -> None:
         default="crawl_state.json",
         help="Path to checkpoint file",
     )
+    parser.add_argument(
+        "--pkeys",
+        nargs="+",
+        default=None,
+        help="Skip Playwright pKey collection and use these pKeys directly (for testing)",
+    )
     args = parser.parse_args()
 
     asyncio.run(
@@ -353,6 +360,7 @@ def main() -> None:
             conninfo=_build_conninfo(),
             checkpoint_path=Path(args.checkpoint),
             limit=args.limit,
+            pkeys=args.pkeys,
         )
     )
 

@@ -59,7 +59,7 @@ def _extract_instructors(tds: list[Tag]) -> list[str]:
 
 def parse_syllabus(html: str, pkey: str) -> dict[str, Any] | None:
     """Parse a JAA104.php response and return a field dict, or None on error."""
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, features="xml")
 
     # Detect error pages
     body_text = soup.get_text()
