@@ -6,8 +6,8 @@ dependencies = [
     "waseda-libs",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
+    "psycopg[binary]>=3.1",
     "sqlalchemy[asyncio]>=2.0",
-    "asyncpg>=0.29",
 ]
 
 [tool.uv.sources]
