@@ -16,14 +16,30 @@ issue番号を受け取り、worktree作成から実装・PR作成まで**エー
 gh issue view <number> --json number,title,labels,body
 ```
 
-タイトルとラベルからブランチのprefixを判定する:
+タイトルとラベルからブランチの **prefix** と PR タイトルの **scope** を判定する:
+
+**prefix（ブランチ名 & コミット/PRのconventional commit種別）**
 
 | 条件 | prefix |
 |------|--------|
 | ラベル `bug` / タイトルに "fix" "バグ" "修正" | `fix` |
 | ラベル `documentation` / タイトルに "doc" "ドキュメント" | `docs` |
 | タイトルに "refactor" "リファクタ" | `refactor` |
-| それ以外 | `feature` |
+| それ以外 | `feat` |
+
+> ブランチ名のみ `feat` → `feature` と読み替える（例: `WMCP-7-feature-...`）
+
+**scope（影響範囲）**
+
+issueのラベル・タイトル・bodyから判断する:
+
+| 条件 | scope |
+|------|-------|
+| ラベル `backend` / バックエンド・API・DB・クローラー関連 | `backend` |
+| ラベル `frontend` / UI・フロントエンド関連 | `frontend` |
+| ラベル `infra` / Docker・CI/CD・インフラ関連 | `infra` |
+| ラベル `documentation` / ドキュメントのみ | `docs` |
+| 複数領域にまたがる場合 | 主たる領域を選ぶ |
 
 ## Step 2: ブランチ名の生成
 
@@ -130,7 +146,18 @@ EOF
 )"
 ```
 
-PRのタイトルはissueのタイトルをベースにする。
+PRのタイトルは以下のフォーマットで生成する:
+
+```
+<prefix>(<scope>): <日本語で何をやったかの説明>
+```
+
+例:
+- `feat(backend): Docker ComposeでPostgreSQL 16開発環境を構築`
+- `fix(frontend): シラバス検索結果が空の場合にクラッシュする問題を修正`
+- `docs(docs): バックエンドアーキテクチャ設計ドキュメントを追加`
+- `refactor(backend): クローラーのエラーハンドリングを改善`
+
 完了したらPRのURLをユーザーに伝える。
 
 ---
