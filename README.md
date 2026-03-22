@@ -2,6 +2,37 @@
 
 Waseda University Syllabus MCP Server
 
+## Development Setup
+
+### Backend (uv workspace)
+
+```bash
+cd apps/backend
+
+# 全パッケージの依存関係をインストール
+uv sync
+```
+
+### Frontend (pnpm)
+
+```bash
+cd apps/frontend
+
+# 依存関係をインストール
+pnpm install
+
+# 開発サーバー起動
+pnpm dev
+```
+
+### 環境変数
+
+`apps/frontend/.env.local` を作成:
+
+```
+API_URL=http://localhost:8000
+```
+
 ## Development Workflow
 
 This repository uses git worktrees for managing multiple branches simultaneously.

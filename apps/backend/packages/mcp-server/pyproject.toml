@@ -1,0 +1,13 @@
+[project]
+name = "waseda-mcp"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "waseda-libs",
+    "waseda-api",
+    "mcp>=1.0",
+]
+
+[tool.uv.sources]
+waseda-libs = { workspace = true }
+waseda-api = { workspace = true }
