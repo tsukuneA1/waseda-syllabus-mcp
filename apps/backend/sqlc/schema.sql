@@ -1,6 +1,3 @@
--- 早稲田大学シラバス MCP サーバー DB 初期化スクリプト
--- このスクリプトはコンテナ初回起動時に自動実行される
-
 -- エクステンション
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
