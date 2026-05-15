@@ -1,6 +1,0 @@
-#!/bin/bash
-ISSUE=${1:?Usage: wi <issue-number>}
-PROJECT_ROOT="/home/tksch/waseda-syllabus-mcp/main"
-
-tmux split-window -h -c "$PROJECT_ROOT"
-tmux send-keys "claude \"/worktree-issue $ISSUE\"" Enter
